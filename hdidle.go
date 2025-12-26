@@ -18,13 +18,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/adelolmo/hd-idle/diskstats"
-	"github.com/adelolmo/hd-idle/io"
-	"github.com/adelolmo/hd-idle/sgio"
 	"log"
 	"math"
 	"os"
+	"os/exec"
 	"time"
+
+	"github.com/adelolmo/hd-idle/diskstats"
+	"github.com/adelolmo/hd-idle/io"
+	"github.com/adelolmo/hd-idle/sgio"
 )
 
 const (
@@ -41,6 +43,7 @@ type DefaultConf struct {
 	LogFile                 string
 	SymlinkPolicy           int
 	IgnoreSpinDownDetection bool
+	PreScriptFile           string
 }
 
 type DeviceConf struct {
@@ -153,7 +156,7 @@ func updateState(tmp DiskStats, config *Config) {
 						config.resolveDeviceGivenName(ds.Name))
 				}
 				device := fmt.Sprintf("/dev/%s", ds.Name)
-				if err := spindownDisk(device, ds.CommandType, ds.PowerCondition, config.Defaults.Debug); err != nil {
+				if err := spindownDisk(device, ds.CommandType, config.Defaults.PreScriptFile, ds.PowerCondition, config.Defaults.Debug); err != nil {
 					fmt.Println(err.Error())
 				}
 				previousSnapshots[dsi].LastSpunDownAt = now
@@ -236,7 +239,11 @@ func deviceConfig(diskName string, config *Config) *DeviceConf {
 	}
 }
 
-func spindownDisk(device, command string, powerCondition uint8, debug bool) error {
+func spindownDisk(device, command, preScript string, powerCondition uint8, debug bool) error {
+	if err := runScript(preScript); err != nil {
+		return err
+	}
+
 	switch command {
 	case SCSI:
 		if err := sgio.StartStopScsiDevice(device, powerCondition); err != nil {
@@ -248,6 +255,19 @@ func spindownDisk(device, command string, powerCondition uint8, debug bool) erro
 			return fmt.Errorf("cannot spindown ata disk %s:\n%s\n", device, err.Error())
 		}
 		return nil
+	}
+	return nil
+}
+
+func runScript(script string) error {
+	if len(script) == 0 {
+		return nil
+	}
+
+	cmd := exec.Command(script)
+
+	if _, err := cmd.Output(); err != nil {
+		return fmt.Errorf("could not run script:  %s:\n", err.Error())
 	}
 	return nil
 }

@@ -18,10 +18,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/adelolmo/hd-idle/io"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/adelolmo/hd-idle/io"
 )
 
 const (
@@ -173,6 +174,14 @@ func main() {
 			}
 			config.Defaults.LogFile = logfile
 
+		case "-S":
+			scriptfile, err := argument(index)
+			if err != nil {
+				fmt.Println("Missing script file after -S.")
+				os.Exit(1)
+			}
+			config.Defaults.PreScriptFile = scriptfile
+
 		case "-d":
 			config.Defaults.Debug = true
 
@@ -186,6 +195,7 @@ func main() {
 		if err := spindownDisk(
 			disk,
 			config.Defaults.CommandType,
+			config.Defaults.PreScriptFile,
 			config.Defaults.PowerCondition,
 			config.Defaults.Debug,
 		); err != nil {
@@ -222,7 +232,7 @@ func argument(index int) (string, error) {
 
 func usage() {
 	fmt.Println("usage: hd-idle [-t <disk>] [-s <symlink_policy>] [-a <name>] [-i <idle_time>] " +
-		"[-c <command_type>] [-p power_condition] [-l <logfile>] [-d] [-I] [-h]")
+		"[-c <command_type>] [-p power_condition] [-l <logfile>] [-S <script_file>] [-d] [-I] [-h]")
 }
 
 func poolInterval(deviceConfs []DeviceConf) time.Duration {
